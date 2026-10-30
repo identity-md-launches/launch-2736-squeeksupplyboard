@@ -47,6 +47,13 @@ npm run test:chain
 
 合约只记录服务端签名认可的成绩，不执行游戏回放、不保证玩家是真人、不托管资金。签名包含runId、challengeId、configHash、player、score、deliveries、deadline。12确认后显示链上已确认。
 
+### 签名者轮换
+
+- `setSigner(newSigner)`（仅owner）切换签名者后，被替换的签名者在 `SIGNER_GRACE_PERIOD`（常量，86400秒，与后端签发的24小时deadline一致）内仍被 `pinScore` 接受，玩家已拿到但尚未提交的有效签名不会因轮换失效。
+- 旧密钥泄露时，owner调用 `revokePreviousSigner()` 立即结束宽限期；`previousSigner` 与 `previousSignerValidUntil` 可公开查询。
+- `renounceOwnership()` 已禁用（revert `RenounceDisabled`），避免合约失去owner后无法再轮换签名者；所有权转移仍走 Ownable2Step 的 `transferOwnership` + `acceptOwnership`。
+- ABI 导出见 `docs/abi/SqueekSupplyBoard.json`；IMD 启动包装的改动记录见 `ADAPTATION.md`。
+
 ## 来源与公平性
 
 赛题第一次成功发布后按UTC日期冻结到数据库，之后所有玩家的种子、任务、物理参数和计分完全相同。官方数据不可用时不伪造天气；已冻结挑战仍可玩，未发布挑战提供自由练习。
