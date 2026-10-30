@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="Squeek Supply Station: merge, store and deliver in challenges from real Squeekchain settlements."
+    />
+    <title>Squeek Supply Station · 轮次补给站</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main" data-i18n="skip">跳到内容</a>
+    <header class="topbar">
+      <button class="brand" id="homeBtn" aria-label="Home">
+        <canvas id="brandIcon" aria-hidden="true"></canvas
+        ><span
+          >Squeek<span class="brand-sub" data-i18n="station"
+            >轮次补给站</span
+          ></span
+        >
+      </button>
+      <nav aria-label="Main">
+        <button id="lobbyBtn" data-i18n="play">挑战</button
+        ><button id="boardBtn" data-i18n="leaderboard">排行榜</button
+        ><button id="helpBtn" data-i18n="help">怎么玩</button>
+      </nav>
+      <div class="header-actions">
+        <span class="network">SEPOLIA</span
+        ><button id="muteBtn" aria-label="Toggle sound">🔇</button
+        ><button id="langBtn" aria-label="Switch language">EN</button
+        ><button id="walletBtn" class="wallet" data-i18n="connect">
+          连接钱包
+        </button>
+      </div>
+    </header>
+    <main id="main">
+      <section id="lobby" class="view">
+        <div class="hero">
+          <div>
+            <div class="eyebrow">SQUEEK SUPPLY STATION / SEASON 01</div>
+            <h1 data-i18n="headline">每一次合成，都要做点选择。</h1>
+            <p class="lead" data-i18n="intro"></p>
+            <div class="hero-actions">
+              <button
+                class="primary"
+                id="dailyBtn"
+                disabled
+                data-i18n="daily"
+              ></button
+              ><button id="practiceBtn" data-i18n="practice"></button>
+            </div>
+            <p class="hint" id="entryHint" data-i18n="anonymousHint"></p>
+          </div>
+          <aside class="station-card">
+            <canvas id="heroIcon" aria-hidden="true"></canvas>
+            <p class="eyebrow" data-i18n="objective"></p>
+            <h2 data-i18n="heroTask"></h2>
+            <p data-i18n="heroDescription"></p>
+          </aside>
+        </div>
+        <section class="challenge-card" aria-labelledby="challengeHeading">
+          <div class="section-title">
+            <div>
+              <p class="eyebrow" data-i18n="frozenLabel"></p>
+              <h2 id="challengeHeading" data-i18n="today"></h2>
+            </div>
+            <span class="pill" id="challengeDate">—</span>
+          </div>
+          <p id="challengeStatus" role="status" data-i18n="loading"></p>
+          <div class="phase-grid" id="phaseCards"></div>
+          <details>
+            <summary data-i18n="sourceTitle"></summary>
+            <div id="sourceBody"></div>
+            <p class="hint" data-i18n="sourceRule"></p>
+          </details>
+          <button id="retryChallenge" hidden data-i18n="retry"></button>
+        </section>
+        <div class="principles">
+          <article>
+            <span>01</span>
+            <h3 data-i18n="rule1"></h3>
+            <p data-i18n="rule1body"></p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3 data-i18n="rule2"></h3>
+            <p data-i18n="rule2body"></p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3 data-i18n="rule3"></h3>
+            <p data-i18n="rule3body"></p>
+          </article>
+        </div>
+      </section>
+      <section id="gameView" class="view" hidden aria-label="Game">
+        <div class="game-top">
+          <div>
+            <span class="pill" id="runMode"></span
+            ><span id="rankedLabel" class="hint"></span>
+          </div>
+          <button id="quitBtn" data-i18n="finish"></button>
+        </div>
+        <div class="game-layout">
+          <aside class="game-context">
+            <p class="eyebrow" data-i18n="journey"></p>
+            <ol id="journey"></ol>
+            <div class="hint" data-i18n="gameNotice"></div>
+          </aside>
+          <div class="play-column">
+            <div class="hud">
+              <div><span data-i18n="score"></span><b id="score">0</b></div>
+              <div>
+                <span data-i18n="delivered"></span><b id="delivered">0</b>
+              </div>
+              <div>
+                <span data-i18n="remaining"></span><b id="time">3:00</b>
+              </div>
+            </div>
+            <div class="energy-label">
+              <span data-i18n="energy"></span><span id="fever"></span>
+            </div>
+            <div class="bar"><div id="energyBar"></div></div>
+            <div class="stage">
+              <canvas
+                id="game"
+                tabindex="0"
+                role="img"
+                aria-label="Game board: arrows aim, space drops, E delivers, C stores, X shakes"
+              ></canvas>
+            </div>
+            <p class="controls-hint" data-i18n="controls"></p>
+          </div>
+          <aside class="game-tools">
+            <div class="mission">
+              <p class="eyebrow" id="phaseTitle"></p>
+              <h2 id="missionTitle"></h2>
+              <p id="missionProgress"></p>
+              <p class="hint" id="missionReward"></p>
+              <button
+                id="deliverBtn"
+                class="primary"
+                disabled
+                data-i18n="deliver"
+              ></button>
+              <p class="hint" id="deliveryHint" role="status"></p>
+              <p class="hint" id="nextMission"></p>
+            </div>
+            <div class="queue-card">
+              <span data-i18n="next"></span>
+              <div id="queue"></div>
+            </div>
+            <div class="tools">
+              <button id="pouchBtn">
+                <canvas id="pouchIcon" aria-hidden="true"></canvas
+                ><span data-i18n="pouch"></span></button
+              ><button id="shakeBtn">
+                <b id="shakes">2</b><span data-i18n="shake"></span>
+              </button>
+            </div>
+          </aside>
+        </div>
+      </section>
+      <section id="boardView" class="view" hidden>
+        <div class="section-title">
+          <div>
+            <p class="eyebrow" data-i18n="verifiedBoard"></p>
+            <h1 data-i18n="leaderboard"></h1>
+          </div>
+          <label
+            ><span data-i18n="date"></span><input type="date" id="boardDate"
+          /></label>
+        </div>
+        <p class="hint" data-i18n="boardRules"></p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-i18n="rank"></th>
+                <th data-i18n="player"></th>
+                <th data-i18n="score"></th>
+                <th data-i18n="delivered"></th>
+                <th data-i18n="proof"></th>
+              </tr>
+            </thead>
+            <tbody id="boardBody"></tbody>
+          </table>
+        </div>
+        <button id="refreshBoard" data-i18n="refresh"></button>
+      </section>
+      <footer>
+        <span data-i18n="footer"></span
+        ><a
+          href="https://squeekchain.com/"
+          target="_blank"
+          rel="noopener"
+          data-i18n="official"
+        ></a>
+      </footer>
+    </main>
+    <dialog id="resultDialog">
+      <div class="result-card">
+        <p class="eyebrow" data-i18n="runComplete"></p>
+        <h2 id="resultScore">0</h2>
+        <p id="resultStats"></p>
+        <p id="resultStatus" role="status"></p>
+        <p id="resultRank"></p>
+        <p id="chainStatus" class="hint"></p>
+        <a
+          id="txLink"
+          target="_blank"
+          rel="noopener"
+          hidden
+          data-i18n="viewTx"
+        ></a>
+        <div class="dialog-actions">
+          <button id="resultConnect" hidden data-i18n="connect"></button
+          ><button id="retryFinish" hidden data-i18n="retryFinish"></button
+          ><button id="pinBtn" class="primary" hidden data-i18n="pin"></button
+          ><button id="againBtn" data-i18n="again"></button
+          ><button id="resultHome" data-i18n="back"></button>
+        </div>
+        <p class="hint" data-i18n="trust"></p>
+      </div>
+    </dialog>
+    <dialog id="helpDialog">
+      <h2 data-i18n="help"></h2>
+      <div id="helpBody"></div>
+      <button id="closeHelp" data-i18n="close"></button>
+    </dialog>
+    <div id="toasts" role="status" aria-live="polite"></div>
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
