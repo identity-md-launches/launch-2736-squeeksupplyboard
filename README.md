@@ -50,7 +50,9 @@ npm run test:chain
 ### 签名者轮换
 
 - `setSigner(newSigner)`（仅owner）切换签名者后，被替换的签名者在 `SIGNER_GRACE_PERIOD`（常量，86400秒，与后端签发的24小时deadline一致）内仍被 `pinScore` 接受，玩家已拿到但尚未提交的有效签名不会因轮换失效。
-- 旧密钥泄露时，owner调用 `revokePreviousSigner()` 立即结束宽限期；`previousSigner` 与 `previousSignerValidUntil` 可公开查询。
+- `setSigner` 拒绝把签名者设为当前已生效的地址（revert `InvalidConfiguration`），重复或重试的调用不会覆盖被替换密钥的宽限期；只保留最近一个被替换的签名者，24小时内连续两次轮换会使更早的密钥立即失效。
+- 密钥泄露时，owner调用 `replaceSigner(newSigner)`（仅owner）：在同一笔交易里切换签名者并清空宽限期，被替换密钥与任何尚未过期的 `previousSigner` 从该区块起全部拒绝，无需第二笔交易。已用 `setSigner` 轮换后也可调用 `revokePreviousSigner()` 立即结束宽限期；`previousSigner` 与 `previousSignerValidUntil` 可公开查询。
+- `pinScore` 首次写入某个 `challengeId` 的 `configHash` 时，会在 `challengeConfigSigner` 记录签发该认证的签名者。若泄露的密钥提前把可预测的未来 challengeId 锁到错误的 configHash，owner 在该密钥退役后（既不是当前签名者，也不在宽限期内）可调用 `clearChallengeConfig(challengeId)` 清除锁定并发出 `ChallengeConfigCleared`；仍在服务中的密钥写入的锁不能清除（revert `LockSignerActive`）。清除只影响锁定，已记录的成绩、已用的 runId 与个人最佳不变。
 - `renounceOwnership()` 已禁用（revert `RenounceDisabled`），避免合约失去owner后无法再轮换签名者；所有权转移仍走 Ownable2Step 的 `transferOwnership` + `acceptOwnership`。
 - ABI 导出见 `docs/abi/SqueekSupplyBoard.json`；IMD 启动包装的改动记录见 `ADAPTATION.md`。
 

@@ -98,6 +98,38 @@
   },
   {
     "type": "function",
+    "name": "challengeConfigSigner",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "clearChallengeConfig",
+    "inputs": [
+      {
+        "name": "challengeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "eip712Domain",
     "inputs": [],
     "outputs": [
@@ -262,6 +294,19 @@
   },
   {
     "type": "function",
+    "name": "replaceSigner",
+    "inputs": [
+      {
+        "name": "newSigner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "revokePreviousSigner",
     "inputs": [],
     "outputs": [],
@@ -305,6 +350,31 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "ChallengeConfigCleared",
+    "inputs": [
+      {
+        "name": "challengeId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "configHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "lockedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -475,6 +545,11 @@
   {
     "type": "error",
     "name": "InvalidShortString",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "LockSignerActive",
     "inputs": []
   },
   {
