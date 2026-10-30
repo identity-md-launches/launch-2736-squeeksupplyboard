@@ -1,0 +1,13 @@
+{
+  "kind": "evm_contracts",
+  "contracts": [
+    {
+      "contract": "SqueekSupplyBoard",
+      "constructorArgs": [
+        "0x51404e4a699e4e338e143fb2a45c5cdc96392575",
+        "0x2Dc8205A9650faFB65B51aE25cC34cEfDEe08653"
+      ]
+    }
+  ],
+  "notes": "Deploy SqueekSupplyBoard on Sepolia with constructor arguments initialOwner and initialSigner, in that order. Both are the static addresses the approved brief states: owner 0x51404e4a699e4e338e143fb2a45c5cdc96392575 and public score signer 0x2Dc8205A9650faFB65B51aE25cC34cEfDEe08653. The board records server-attested scores using the SqueekSupply EIP-712 domain version 2; only its owner can rotate the signer. Deployment requires no ETH or initialization calls."
+}
