@@ -31,23 +31,29 @@ forge test --offline --no-match-path 'test/scratch/**'
 | `SqueekScoreRules.t.sol` | Strict improvements; per-player/per-challenge isolation; permanent, global run-ID consumption; first successful configuration lock; failed submissions leave state intact; zero/one/maximum values; inclusive deadlines; nonpayable pinning; backend-compatible event fields. |
 | `SqueekSignatures.t.sol` | Every signed field and every EIP-712 domain field is bound; chain/contract/player replay fails; personal-sign payloads fail; invalid lengths, recovery IDs, zero recovery and high-S malleability fail; unauthorized submissions cannot burn valid runs. |
 | `SqueekAdministration.t.sol` | Approved public constructor addresses; zero-address rejection; separation of signer and owner; pending/replaced/former-owner privileges; cancellation and disabled renunciation; rotation/revocation events; grace cutoff and deadline interactions; preserved scores after rotation/revocation. |
-| `SqueekStateful.t.sol` | All player records, challenge locks, consumed run IDs, ownership, signer and grace state agree with independent accepted-call history after random operations. |
+| `SqueekKeyRecovery.t.sol` | Re-setting the active signer is rejected by `setSigner` and `replaceSigner` without touching the grace window; a second planned rotation keeps only the latest replaced key (as `setSigner`'s NatSpec documents); `replaceSigner` invalidates the replaced and any unexpired previous key in the same call, with exact events; `challengeConfigSigner` records the key that wrote the first lock and is never overwritten or set by rejected pins; `clearChallengeConfig` refuses unlocked challenges, locks of the current signer, of an unexpired previous signer and of a reinstated key, and accepts locks of revoked, expired or replaced keys; clearing keeps scores, consumed runs and strict improvement; all new administration is owner-only. |
+| `SqueekStateful.t.sol` | All player records, challenge locks and their signing keys, consumed run IDs, ownership, signer and grace state agree with independent accepted-call history after random operations. |
 
 Each stateless fuzz property runs 1,000 cases using inline Foundry settings.
 The stateful campaign runs 256 sequences of 64 calls, with four players, three
 challenges and three signing keys. It mixes valid improvements, ten kinds of
-invalid submissions, replays, signer rotations, grace-window probes, revocation,
-time changes, ownership nominations/acceptance and unauthorized administration.
-Only the ten intended handler selectors are targeted. Expected failures check
+invalid submissions, replays, planned and emergency signer rotations, attempts to
+re-set the active signer, grace-window probes, revocation, lock clearing, time
+changes, ownership nominations/acceptance and unauthorized administration
+(including `replaceSigner` and `clearChallengeConfig`). Only the thirteen intended
+handler selectors are targeted. A lock clear is expected to succeed exactly when
+the model says the key that wrote it is out of service. Expected failures check
 exact revert bytes; unexpected handler reverts fail the campaign.
 
 The ghost model is updated from accepted inputs rather than copied from contract
 getters. It tracks the best record for all twelve player/challenge pairs, the first
-accepted configuration, and every generated run ID, including rejected attempts.
+accepted configuration and the key that signed it, and every generated run ID,
+including rejected attempts.
 A seeded successful run makes historical properties meaningful immediately;
 `afterInvariant` verifies that random actions actually ran. A deterministic handler
 test exercises every rejection mode, successful and unsuccessful handoffs, current
-and previous signers, expiry, and revocation with explicit success/failure counts.
+and previous signers, expiry, and revocation with explicit success/failure counts;
+a second one walks the key-recovery transitions the same way.
 
 ## Discovery scope
 
@@ -78,14 +84,20 @@ No fork block was requested and the board calls no external protocol; all tests
 run locally. Live API availability, deployment and frontend/IPFS checks belong to
 later workflow stages and are not claimed by this suite.
 
-## Reported defect
+## Earlier finding and its status
 
-`.imd-findings.json` reports one low-severity availability defect: a second
-`setSigner` call, including reapplying the current signer, discards the earlier
-signer's still-active grace without revocation. An attestation with 86,398 seconds
-left before its signed deadline then fails with `BadSignature`. The self-contained
-proof is embedded in that report: its one-rotation control passes and its two
-regression cases fail on the accepted source. It is kept outside the passing
-submission suite rather than adding an assertion that this premature rejection is
-correct. The existing `testSecondRotationDropsOlderSigner` documents the disputed
-behavior and is unchanged.
+The previous round reported (low) that reapplying the current signer through
+`setSigner` overwrote the replaced key's grace window. The source now rejects
+that call (`InvalidConfiguration`), and the tests above check that the window is
+left exactly as it was. A second planned rotation inside the window still drops
+the older key; the source now documents this as intended and offers
+`replaceSigner` and `revokePreviousSigner` for compromise, so it is tested as
+specified and not reported again. No new defect was found in this revision, so
+no `.imd-findings.json` is submitted.
+
+`clearChallengeConfig` lets the owner reopen the lock of any challenge whose
+signing key is out of service, including a key retired by an ordinary planned
+rotation once its grace has expired. Records pinned under the old configuration
+are kept, so after a clear one challenge can hold scores under two
+configurations. This is the documented remedy and relies on the trusted owner;
+it is described here for review, not asserted as a defect.

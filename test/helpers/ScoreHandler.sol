@@ -16,6 +16,7 @@ contract ScoreHandler is ScoreHarness {
     address[4] public actors;
     bytes32[3] public challenges;
     bytes32[3] public expectedConfig;
+    address[3] public expectedConfigSigner;
     ExpectedBest[4][3] internal expectedBest;
     bytes32[] internal attemptedRuns;
     bytes32[] internal acceptedRuns;
@@ -35,6 +36,8 @@ contract ScoreHandler is ScoreHarness {
     uint256 public rejectedCalls;
     uint256 public rotations;
     uint256 public timeAdvances;
+    uint256 public emergencyReplacements;
+    uint256 public clearedLocks;
 
     constructor(SqueekSupplyBoard target) {
         board = target;
@@ -72,7 +75,10 @@ contract ScoreHandler is ScoreHarness {
         require(!expectedPinned[a.runId], "handler attempted to accept a used run");
         require(a.score > expectedBest[challengeIndex][actorIndex].score, "handler did not generate an improvement");
         expectedBest[challengeIndex][actorIndex] = ExpectedBest(a.score, a.runId);
-        if (expectedConfig[challengeIndex] == bytes32(0)) expectedConfig[challengeIndex] = a.configHash;
+        if (expectedConfig[challengeIndex] == bytes32(0)) {
+            expectedConfig[challengeIndex] = a.configHash;
+            expectedConfigSigner[challengeIndex] = vm.addr(key);
+        }
         expectedPinned[a.runId] = true;
         acceptedRuns.push(a.runId);
         successfulPins++;
@@ -169,6 +175,66 @@ contract ScoreHandler is ScoreHarness {
         rotations++;
     }
 
+    /// @dev Re-setting the active signer must fail and must not touch the replaced key's grace window.
+    function rotateToActiveSigner(bool emergency) external {
+        actions++;
+        vm.prank(expectedOwner);
+        (bool success, bytes memory reason) = address(board)
+            .call(
+                emergency
+                    ? abi.encodeCall(SqueekSupplyBoard.replaceSigner, (expectedSigner))
+                    : abi.encodeCall(SqueekSupplyBoard.setSigner, (expectedSigner))
+            );
+        require(!success, "active signer was set again");
+        require(
+            keccak256(reason) == keccak256(abi.encodeWithSelector(SqueekSupplyBoard.InvalidConfiguration.selector)),
+            "unexpected re-set rejection"
+        );
+        rejectedCalls++;
+    }
+
+    function emergencyReplaceSigner(uint256 seed) external {
+        actions++;
+        uint256 nextIndex = (currentKeyIndex + 1 + seed % 2) % 3;
+        vm.prank(expectedOwner);
+        board.replaceSigner(signers[nextIndex]);
+        previousKey = 0;
+        expectedPreviousSigner = address(0);
+        expectedPreviousValidUntil = 0;
+        currentKeyIndex = nextIndex;
+        expectedSigner = signers[nextIndex];
+        emergencyReplacements++;
+    }
+
+    /// @dev A lock may be cleared only when the key that wrote it is out of service in the model.
+    function clearLock(uint256 challengeSeed) external {
+        actions++;
+        uint256 c = challengeSeed % 3;
+        vm.prank(expectedOwner);
+        (bool success, bytes memory reason) =
+            address(board).call(abi.encodeCall(SqueekSupplyBoard.clearChallengeConfig, (challenges[c])));
+        address lockedBy = expectedConfigSigner[c];
+        bytes memory expected;
+        if (expectedConfig[c] == bytes32(0)) {
+            expected = abi.encodeWithSelector(SqueekSupplyBoard.InvalidConfiguration.selector);
+        } else if (
+            lockedBy == expectedSigner
+                || (lockedBy == expectedPreviousSigner && vm.getBlockTimestamp() <= expectedPreviousValidUntil)
+        ) {
+            expected = abi.encodeWithSelector(SqueekSupplyBoard.LockSignerActive.selector);
+        }
+        if (expected.length != 0) {
+            require(!success, "lock cleared against the model");
+            require(keccak256(reason) == keccak256(expected), "unexpected clear rejection");
+            rejectedCalls++;
+        } else {
+            require(success, "owner could not clear a retired key's lock");
+            expectedConfig[c] = bytes32(0);
+            expectedConfigSigner[c] = address(0);
+            clearedLocks++;
+        }
+    }
+
     function usePreviousSigner(uint256 actorSeed, uint256 challengeSeed) external {
         actions++;
         uint256 actorIndex = actorSeed % 4;
@@ -242,12 +308,14 @@ contract ScoreHandler is ScoreHarness {
         uint256 actorIndex = seed % 4;
         while (actors[actorIndex] == expectedOwner) actorIndex = (actorIndex + 1) % 4;
         address caller = actors[actorIndex];
-        uint256 action = actionSeed % 4;
+        uint256 action = actionSeed % 6;
         bytes memory callData;
         if (action == 0) callData = abi.encodeCall(SqueekSupplyBoard.setSigner, (caller));
         if (action == 1) callData = abi.encodeCall(SqueekSupplyBoard.revokePreviousSigner, ());
         if (action == 2) callData = abi.encodeWithSignature("transferOwnership(address)", caller);
         if (action == 3) callData = abi.encodeWithSignature("renounceOwnership()");
+        if (action == 4) callData = abi.encodeCall(SqueekSupplyBoard.replaceSigner, (caller));
+        if (action == 5) callData = abi.encodeCall(SqueekSupplyBoard.clearChallengeConfig, (challenges[seed % 3]));
         vm.prank(caller);
         (bool success, bytes memory reason) = address(board).call(callData);
         require(!success, "unauthorized administration succeeded");
@@ -263,6 +331,10 @@ contract ScoreHandler is ScoreHarness {
             require(
                 board.challengeConfig(challenges[c]) == expectedConfig[c],
                 "configuration lock differs from first accepted attestation"
+            );
+            require(
+                board.challengeConfigSigner(challenges[c]) == expectedConfigSigner[c],
+                "lock signer differs from the key of the first accepted attestation"
             );
             for (uint256 p; p < 4; ++p) {
                 (uint64 score, bytes32 run) = board.best(challenges[c], actors[p]);

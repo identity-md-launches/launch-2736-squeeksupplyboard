@@ -34,7 +34,7 @@ contract SqueekStatefulTest is ScoreHarness {
     }
 
     function targetSelectors() external view returns (FuzzSelector[] memory targets) {
-        bytes4[] memory selectors = new bytes4[](10);
+        bytes4[] memory selectors = new bytes4[](13);
         selectors[0] = ScoreHandler.submitImprovement.selector;
         selectors[1] = ScoreHandler.submitInvalid.selector;
         selectors[2] = ScoreHandler.replayAccepted.selector;
@@ -45,6 +45,9 @@ contract SqueekStatefulTest is ScoreHarness {
         selectors[7] = ScoreHandler.nominateOwner.selector;
         selectors[8] = ScoreHandler.acceptOwner.selector;
         selectors[9] = ScoreHandler.unauthorizedAdministration.selector;
+        selectors[10] = ScoreHandler.rotateToActiveSigner.selector;
+        selectors[11] = ScoreHandler.emergencyReplaceSigner.selector;
+        selectors[12] = ScoreHandler.clearLock.selector;
         targets = new FuzzSelector[](1);
         targets[0] = FuzzSelector(address(handler), selectors);
     }
@@ -95,5 +98,31 @@ contract SqueekStatefulTest is ScoreHarness {
         require(handler.successfulPins() == 4, "successful paths not reached");
         require(handler.rejectedCalls() == 20, "rejection paths not reached");
         require(handler.rotations() == 2 && handler.timeAdvances() == 1, "admin and time paths not reached");
+    }
+
+    function testHandlerExercisesKeyRecoveryTransitions() public {
+        // Challenge 0 was locked by key A in setUp. A is current, so its lock is protected.
+        handler.clearLock(0);
+        handler.clearLock(1); // never locked
+        handler.rotateToActiveSigner(false);
+        handler.rotateToActiveSigner(true);
+        handler.rotateSigner(0); // A -> B, A in grace
+        handler.clearLock(0); // still protected by grace
+        handler.submitImprovement(1, 1, 5, 0); // challenge 1 locked by B
+        handler.emergencyReplaceSigner(0); // B -> C, A revoked
+        handler.usePreviousSigner(0, 0); // nothing honoured
+        handler.clearLock(0); // A retired: cleared
+        handler.clearLock(1); // B retired: cleared
+        handler.clearLock(1); // already cleared
+        handler.submitImprovement(2, 0, 5, 1); // challenge 0 relocked by C
+        handler.clearLock(0); // C current
+        for (uint256 action = 4; action < 6; ++action) {
+            handler.unauthorizedAdministration(1, action);
+        }
+        handler.assertScoreHistory();
+        handler.assertRunHistory();
+        handler.assertAdministration();
+        require(handler.clearedLocks() == 2 && handler.emergencyReplacements() == 1, "recovery paths not reached");
+        require(handler.rejectedCalls() == 10, "recovery rejections not reached");
     }
 }
